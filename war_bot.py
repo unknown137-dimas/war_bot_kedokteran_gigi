@@ -66,19 +66,20 @@ form_key = form_key_data[opsi_form.value]
 headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
 print()
+SUCCESS = False
 with open(f"{opsi_form.value}.csv", "r") as csv_input:
     data_input = reader(csv_input, delimiter=";")
     data_header = next(data_input)
     for data in data_input:
         submit_data = dict(zip(form_key, data))
+        print("Submitting...")
+        while not SUCCESS:
+            response = post(
+                f"{form_link}/formResponse", data=submit_data, headers=headers
+            )
 
-        response = post(f"{form_link}/formResponse", data=submit_data, headers=headers)
-
-        if "closedform" not in response.url:
-            print(f"{opsi_form.name} -> SUCCESS")
-            print("Exiting program in 3 seconds...")
-            sleep(3)
-        else:
-            print(f"{opsi_form.name} -> ERROR")
+            if "closedform" not in response.url:
+                print(f"{opsi_form.name} -> SUCCESS")
+                SUCCESS = True
             print("Exiting program in 3 seconds...")
             sleep(3)
