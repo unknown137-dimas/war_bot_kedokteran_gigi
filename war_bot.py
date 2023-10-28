@@ -1,7 +1,9 @@
 from csv import reader
-from requests import post
+from requests.sessions import Session
 from enum import Enum
-from time import sleep
+from time import sleep, time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Thread, local
 
 
 class OpsiForm(str, Enum):
@@ -9,14 +11,6 @@ class OpsiForm(str, Enum):
     LANTAI_2 = "lantai_2"
     LANTAI_4_AEROSOL = "lantai_4_aerosol"
     LANTAI_4_NON_AEROSOL = "lantai_4_non_aerosol"
-
-
-print("\n### WAR BOT (►__◄) ###\n")
-i = 1
-for opsi in OpsiForm:
-    print(f"[{i}] {opsi.name}")
-    i += 1
-opsi_form = list(OpsiForm)[int(input("\nPilih GForm: ")) - 1]
 
 
 form_link_data = {
@@ -60,28 +54,61 @@ form_key_data = {
     ],
 }
 
+# BOT MENU
+print("\n### WAR BOT (►__◄) ###\n")
+i = 1
+for opsi in OpsiForm:
+    print(f"[{i}] {opsi.name}")
+    i += 1
+opsi_form = list(OpsiForm)[int(input("\nPilih GForm: ")) - 1]
+print("\nPlase Wait...\n")
+
+
 form_link = form_link_data[opsi_form.value]
 form_key = form_key_data[opsi_form.value]
+thread_local = local()
 
-headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-print()
-with open(f"{opsi_form.value}.csv", "r") as csv_input:
-    data_input = reader(csv_input, delimiter=";")
-    data_header = next(data_input)
-    i = 1
-    for data in data_input:
-        SUCCESS = False
-        submit_data = dict(zip(form_key, data))
-        print(f"Submitting data baris ke-{i}...")
-        while not SUCCESS:
-            response = post(
-                f"{form_link}/formResponse", data=submit_data, headers=headers
-            )
+def get_session() -> Session:
+    if not hasattr(thread_local, "session"):
+        thread_local.session = Session()
+    return thread_local.session
 
-            if "telah direkam" in response.text or "has been recorded" in response.text:
-                print(f"{opsi_form.name}, baris ke-{i} -> SUCCESS")
-                SUCCESS = True
-        i += 1
-    print("Exiting program in 3 seconds...")
+
+def submit_form(data: dict):
+    session = get_session()
+    session.headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    with session.post(
+        url=f"{form_link_data[opsi_form.value]}/formResponse", data=data
+    ) as response:
+        if "telah direkam" in response.text or "has been recorded" in response.text:
+            print("SUCCESS")
+
+
+def formData(opsi_form: OpsiForm, form_key: list) -> list:
+    result = []
+    with open(f"{opsi_form.value}.csv", "r") as csv_input:
+        data_input = reader(csv_input, delimiter=";")
+        data_header = next(data_input)
+        for data in data_input:
+            submit_data = dict(zip(form_key, data))
+            result.append(submit_data)
+    return result
+
+
+dataList = formData(opsi_form=opsi_form, form_key=form_key)
+
+OPEN = False
+while not OPEN:
+    session = get_session()
+    with session.get(f"{form_link_data[opsi_form.value]}/viewform") as response:
+        if "closedform" not in response.url:
+            OPEN = True
+if OPEN:
+    start = time()
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(submit_form, dataList)
+    end = time()
+    print(end - start)
+    print("\nExiting program in 3 seconds...")
     sleep(3)
