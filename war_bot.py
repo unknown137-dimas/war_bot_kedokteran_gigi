@@ -1,7 +1,7 @@
 from csv import reader
 from requests.sessions import Session
 from enum import Enum
-from time import sleep, time
+from time import sleep
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread, local
 
@@ -105,10 +105,7 @@ while not OPEN:
         if "closedform" not in response.url:
             OPEN = True
 if OPEN:
-    start = time()
     with ThreadPoolExecutor(max_workers=10) as executor:
         executor.map(submit_form, dataList)
-    end = time()
-    print(end - start)
     print("\nExiting program in 3 seconds...")
     sleep(3)
