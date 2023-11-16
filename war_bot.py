@@ -5,6 +5,8 @@ from time import sleep
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread, local
 
+DEBUG = False
+
 
 class OpsiForm(str, Enum):
     TEST = "test"
@@ -81,6 +83,9 @@ def submit_form(data: dict):
     with session.post(
         url=f"{form_link_data[opsi_form.value]}/formResponse", data=data
     ) as response:
+        if DEBUG:
+            with open("debug.html", "w") as debug_out:
+                debug_out.writelines(response.text)
         if "telah direkam" in response.text or "has been recorded" in response.text:
             print("SUCCESS")
 
